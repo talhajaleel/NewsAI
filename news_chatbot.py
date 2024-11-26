@@ -7,11 +7,6 @@ import os
 import openai
 from decouple import config
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-
 # OpenAI API key setup
 openai.api_key = config("OPENAI_API_KEY")
 
@@ -19,56 +14,27 @@ openai.api_key = config("OPENAI_API_KEY")
 EMBEDDINGS_FILE = "embeddings.json"
 
 
-def scrape_google_news(query, max_articles=10):
-    """Fetch article URLs from Google News using Selenium."""
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")  # Run in headless mode
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
+def scrape_google_news(query, max_articles=7):
+    """Fetch article URLs from Google News for a given query."""
     search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}&tbm=nws"
-    driver.get(search_url)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    response = requests.get(search_url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
 
+    # Extract URLs from Google News results
+    articles = soup.find_all("a", href=True)
     article_urls = []
-    try:
-        results = driver.find_elements(By.CSS_SELECTOR, "a[href]")
-        for result in results:
-            href = result.get_attribute("href")
-            if "/url?q=" in href:
-                url = href.split("/url?q=")[1].split("&")[0]
-                article_urls.append(url)
-                if len(article_urls) >= max_articles:
-                    break
-    except Exception as e:
-        st.error(f"Selenium scraping error: {e}")
-    finally:
-        driver.quit()
-
+    for link in articles:
+        href = link["href"]
+        if "/url?q=" in href:
+            url = href.split("/url?q=")[1].split("&")[0]
+            article_urls.append(url)
+            if len(article_urls) >= max_articles:
+                break
     return article_urls
-
-
-# def scrape_google_news(query, max_articles=7):
-#     """Fetch article URLs from Google News for a given query."""
-#     search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}&tbm=nws"
-#     headers = {
-#         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-#     }
-#     response = requests.get(search_url, headers=headers)
-#     soup = BeautifulSoup(response.text, "html.parser")
-#
-#     # Extract URLs from Google News results
-#     articles = soup.find_all("a", href=True)
-#     article_urls = []
-#     for link in articles:
-#         href = link["href"]
-#         if "/url?q=" in href:
-#             url = href.split("/url?q=")[1].split("&")[0]
-#             article_urls.append(url)
-#             if len(article_urls) >= max_articles:
-#                 break
-#     return article_urls
 
 def scrape_article_content(url):
     """Scrape and return the main text content from a given article URL."""
@@ -158,7 +124,7 @@ with st.sidebar:
 
     if st.button("Scrape and Process Articles"):
         st.write("Scraping articles...")
-        urls = scrape_google_news(topic, max_articles)
+        # urls = scrape_google_news(topic, max_articles)
         urls = [
             "https://tribune.com.pk/story/2511704/verstappen-takes-fourth-f1-title",
             "https://www.formula1.com/en/latest/article/the-four-time-world-champions-verstappen-joins-in-the-all-time-list-and.DIIOvqAthyjnqsyOrzMon",
